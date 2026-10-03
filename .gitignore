@@ -1,0 +1,22 @@
+# Virtual environment
+.venv/
+
+# Environment secrets
+.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# IDE
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
+
+# Uploaded files
+uploads/*
+
+# Keep directory
+!uploads/.gitkeep
