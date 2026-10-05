@@ -1,0 +1,30 @@
+LearnLoop AI - Day 3 AI Backend Merge Patch
+
+This patch contains only new/changed Day-3 AI backend files.
+It does NOT contain your .env, .git, .venv, database data, or uploaded study files.
+
+Recommended merge:
+1. Commit/back up your current backend.
+2. Extract this ZIP.
+3. Copy its contents into the ROOT of your existing LearnLoopBackend folder.
+4. Allow matching files to be replaced.
+5. Keep your existing .env and add the required AI variables manually.
+6. Install/update requirements.
+7. Run: python -m compileall app
+
+Changed existing files:
+- app/api/routes/ai.py
+- app/core/config.py
+- app/schemas/ai.py
+- requirements.txt
+
+New files:
+- app/ai/__init__.py
+- app/ai/provider_factory.py
+- app/ai/providers/__init__.py
+- app/ai/providers/base.py
+- app/ai/providers/gemini_provider.py
+- app/ai/providers/openai_provider.py
+- app/services/ai_service.py
+- app/services/material_ai_service.py
+- .env.example

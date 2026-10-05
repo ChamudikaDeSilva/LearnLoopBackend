@@ -9,6 +9,11 @@ from sqlalchemy.orm import (
     Session,
 )
 
+from app.ai.providers.base import (
+    AIConfigurationError,
+    AIProviderError,
+)
+
 from app.api.dependencies import (
     get_current_user,
 )
@@ -23,6 +28,7 @@ from app.models.user import (
 
 from app.schemas.ai import (
     MaterialExtractionResponse,
+    MaterialSummaryResponse,
 )
 
 from app.services.content_extraction_service import (
@@ -33,16 +39,22 @@ from app.services.content_extraction_service import (
     UnsupportedContentTypeError,
 )
 
+from app.services.material_ai_service import (
+    MaterialAIService,
+)
+
 from app.services.material_service import (
+    MaterialFileNotFoundError,
     MaterialNotFoundError,
     MaterialService,
+    UnsupportedMaterialFileError,
 )
 
 
 router = APIRouter(
     prefix="/api/v1/ai",
     tags=[
-        "AI"
+        "AI",
     ],
 )
 
@@ -54,7 +66,6 @@ router = APIRouter(
 
 @router.get(
     "/materials/{material_id}/extract",
-
     response_model=
         MaterialExtractionResponse,
 )
@@ -84,13 +95,6 @@ def extract_material_content(
 
     try:
 
-        # ----------------------------------------------------
-        # IMPORTANT
-        #
-        # This method already validates that the
-        # material belongs to the logged-in user.
-        # ----------------------------------------------------
-
         material = (
             material_service
             .get_material(
@@ -108,23 +112,21 @@ def extract_material_content(
         )
 
 
-        return (
-            MaterialExtractionResponse(
-                material_id=
-                    material.id,
+        return MaterialExtractionResponse(
+            material_id=
+                material.id,
 
-                title=
-                    material.title,
+            title=
+                material.title,
 
-                source_type=
-                    material.source_type,
+            source_type=
+                material.source_type,
 
-                text=
-                    extracted.text,
+            text=
+                extracted.text,
 
-                character_count=
-                    extracted.character_count,
-            )
+            character_count=
+                extracted.character_count,
         )
 
 
@@ -150,18 +152,10 @@ def extract_material_content(
         )
 
 
-    except EmptyMaterialContentError as exc:
-
-        raise HTTPException(
-            status_code=
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
-
-            detail=
-                str(exc),
-        )
-
-
-    except UnsupportedContentTypeError as exc:
+    except (
+        EmptyMaterialContentError,
+        UnsupportedContentTypeError,
+    ) as exc:
 
         raise HTTPException(
             status_code=
@@ -177,6 +171,162 @@ def extract_material_content(
         raise HTTPException(
             status_code=
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
+
+            detail=
+                str(exc),
+        )
+
+
+# ============================================================
+# GENERATE MATERIAL SUMMARY
+# ============================================================
+
+
+@router.post(
+    "/materials/{material_id}/summary",
+    response_model=
+        MaterialSummaryResponse,
+)
+def generate_material_summary(
+    material_id: int,
+
+    current_user: User = Depends(
+        get_current_user
+    ),
+
+    db: Session = Depends(
+        get_db
+    ),
+):
+
+    try:
+
+        material_service = (
+            MaterialService(
+                db
+            )
+        )
+
+
+        ai_service = (
+            MaterialAIService(
+                material_service=
+                    material_service
+            )
+        )
+
+
+        return (
+            ai_service
+            .generate_summary(
+                material_id=
+                    material_id,
+
+                current_user=
+                    current_user,
+            )
+        )
+
+
+    # ========================================================
+    # MATERIAL NOT FOUND
+    # ========================================================
+
+    except MaterialNotFoundError:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_404_NOT_FOUND,
+
+            detail=
+                "Material not found.",
+        )
+
+
+    # ========================================================
+    # STORED FILE NOT FOUND
+    # ========================================================
+
+    except (
+        ContentFileNotFoundError,
+        MaterialFileNotFoundError,
+    ) as exc:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_404_NOT_FOUND,
+
+            detail=
+                str(exc)
+                or (
+                    "Material file "
+                    "was not found."
+                ),
+        )
+
+
+    # ========================================================
+    # MATERIAL CANNOT BE PROCESSED
+    # ========================================================
+
+    except (
+        EmptyMaterialContentError,
+        UnsupportedContentTypeError,
+        UnsupportedMaterialFileError,
+    ) as exc:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+
+            detail=
+                str(exc)
+                or (
+                    "The material "
+                    "cannot be processed."
+                ),
+        )
+
+
+    # ========================================================
+    # AI CONFIGURATION
+    # ========================================================
+
+    except AIConfigurationError as exc:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+
+            detail=
+                str(exc),
+        )
+
+
+    # ========================================================
+    # AI PROVIDER ERROR
+    # ========================================================
+
+    except AIProviderError as exc:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_502_BAD_GATEWAY,
+
+            detail=
+                str(exc),
+        )
+
+
+    # ========================================================
+    # VALIDATION
+    # ========================================================
+
+    except ValueError as exc:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
 
             detail=
                 str(exc),
