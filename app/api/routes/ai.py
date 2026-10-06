@@ -2,6 +2,7 @@ from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Query,
     status,
 )
 
@@ -31,6 +32,10 @@ from app.schemas.ai import (
     MaterialSummaryResponse,
 )
 
+from app.schemas.flashcard import (
+    MaterialFlashcardsResponse,
+)
+
 from app.services.content_extraction_service import (
     ContentExtractionError,
     ContentExtractionService,
@@ -44,12 +49,22 @@ from app.services.material_ai_service import (
     MaterialSummaryNotFoundError,
 )
 
+from app.services.material_flashcard_service import (
+    FlashcardSetNotFoundError,
+    MaterialFlashcardService,
+)
+
 from app.services.material_service import (
     MaterialFileNotFoundError,
     MaterialNotFoundError,
     MaterialService,
     UnsupportedMaterialFileError,
 )
+
+
+# ============================================================
+# ROUTER
+# ============================================================
 
 
 router = APIRouter(
@@ -96,6 +111,10 @@ def extract_material_content(
 
     try:
 
+        # ====================================================
+        # GET MATERIAL
+        # ====================================================
+
         material = (
             material_service
             .get_material(
@@ -105,6 +124,10 @@ def extract_material_content(
         )
 
 
+        # ====================================================
+        # EXTRACT CONTENT
+        # ====================================================
+
         extracted = (
             extraction_service
             .extract(
@@ -112,6 +135,10 @@ def extract_material_content(
             )
         )
 
+
+        # ====================================================
+        # RESPONSE
+        # ====================================================
 
         return MaterialExtractionResponse(
             material_id=
@@ -131,6 +158,10 @@ def extract_material_content(
         )
 
 
+    # ========================================================
+    # MATERIAL NOT FOUND
+    # ========================================================
+
     except MaterialNotFoundError:
 
         raise HTTPException(
@@ -142,6 +173,10 @@ def extract_material_content(
         )
 
 
+    # ========================================================
+    # CONTENT FILE NOT FOUND
+    # ========================================================
+
     except ContentFileNotFoundError as exc:
 
         raise HTTPException(
@@ -152,6 +187,10 @@ def extract_material_content(
                 str(exc),
         )
 
+
+    # ========================================================
+    # INVALID / UNSUPPORTED MATERIAL
+    # ========================================================
 
     except (
         EmptyMaterialContentError,
@@ -166,6 +205,10 @@ def extract_material_content(
                 str(exc),
         )
 
+
+    # ========================================================
+    # EXTRACTION FAILURE
+    # ========================================================
 
     except ContentExtractionError as exc:
 
@@ -202,12 +245,20 @@ def get_material_summary(
 
     try:
 
+        # ====================================================
+        # MATERIAL SERVICE
+        # ====================================================
+
         material_service = (
             MaterialService(
                 db
             )
         )
 
+
+        # ====================================================
+        # MATERIAL AI SERVICE
+        # ====================================================
 
         material_ai_service = (
             MaterialAIService(
@@ -219,6 +270,10 @@ def get_material_summary(
             )
         )
 
+
+        # ====================================================
+        # LOAD SAVED SUMMARY
+        # ====================================================
 
         return (
             material_ai_service
@@ -232,6 +287,10 @@ def get_material_summary(
         )
 
 
+    # ========================================================
+    # MATERIAL NOT FOUND
+    # ========================================================
+
     except MaterialNotFoundError:
 
         raise HTTPException(
@@ -242,6 +301,10 @@ def get_material_summary(
                 "Material not found.",
         )
 
+
+    # ========================================================
+    # SUMMARY NOT FOUND
+    # ========================================================
 
     except MaterialSummaryNotFoundError:
 
@@ -279,12 +342,20 @@ def generate_material_summary(
 
     try:
 
+        # ====================================================
+        # MATERIAL SERVICE
+        # ====================================================
+
         material_service = (
             MaterialService(
                 db
             )
         )
 
+
+        # ====================================================
+        # MATERIAL AI SERVICE
+        # ====================================================
 
         material_ai_service = (
             MaterialAIService(
@@ -296,6 +367,10 @@ def generate_material_summary(
             )
         )
 
+
+        # ====================================================
+        # GENERATE SUMMARY
+        # ====================================================
 
         return (
             material_ai_service
@@ -382,6 +457,292 @@ def generate_material_summary(
 
     # ========================================================
     # AI PROVIDER
+    # ========================================================
+
+    except AIProviderError as exc:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_502_BAD_GATEWAY,
+
+            detail=
+                str(exc),
+        )
+
+
+    # ========================================================
+    # VALIDATION
+    # ========================================================
+
+    except ValueError as exc:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+
+            detail=
+                str(exc),
+        )
+
+
+# ============================================================
+# GET SAVED MATERIAL FLASHCARDS
+# ============================================================
+
+
+@router.get(
+    "/materials/{material_id}/flashcards",
+    response_model=
+        MaterialFlashcardsResponse,
+)
+def get_material_flashcards(
+    material_id: int,
+
+    current_user: User = Depends(
+        get_current_user
+    ),
+
+    db: Session = Depends(
+        get_db
+    ),
+):
+
+    try:
+
+        # ====================================================
+        # MATERIAL SERVICE
+        # ====================================================
+
+        material_service = (
+            MaterialService(
+                db
+            )
+        )
+
+
+        # ====================================================
+        # FLASHCARD SERVICE
+        # ====================================================
+
+        flashcard_service = (
+            MaterialFlashcardService(
+                material_service=
+                    material_service,
+
+                db=
+                    db,
+            )
+        )
+
+
+        # ====================================================
+        # LOAD SAVED FLASHCARDS
+        # ====================================================
+
+        return (
+            flashcard_service
+            .get_saved(
+                material_id=
+                    material_id,
+
+                current_user=
+                    current_user,
+            )
+        )
+
+
+    # ========================================================
+    # MATERIAL NOT FOUND
+    # ========================================================
+
+    except MaterialNotFoundError:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_404_NOT_FOUND,
+
+            detail=
+                "Material not found.",
+        )
+
+
+    # ========================================================
+    # FLASHCARDS NOT FOUND
+    # ========================================================
+
+    except FlashcardSetNotFoundError:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_404_NOT_FOUND,
+
+            detail=
+                "No saved flashcards exist "
+                "for this material.",
+        )
+
+
+# ============================================================
+# GENERATE / REGENERATE MATERIAL FLASHCARDS
+# ============================================================
+
+
+@router.post(
+    "/materials/{material_id}/flashcards",
+    response_model=
+        MaterialFlashcardsResponse,
+)
+def generate_material_flashcards(
+    material_id: int,
+
+    # ========================================================
+    # NUMBER OF FLASHCARDS
+    #
+    # Example:
+    #
+    # POST
+    # /api/v1/ai/materials/21/flashcards?count=8
+    #
+    # Minimum: 4
+    # Maximum: 20
+    # Default: 8
+    # ========================================================
+
+    count: int = Query(
+        default=8,
+        ge=4,
+        le=20,
+    ),
+
+    current_user: User = Depends(
+        get_current_user
+    ),
+
+    db: Session = Depends(
+        get_db
+    ),
+):
+
+    try:
+
+        # ====================================================
+        # MATERIAL SERVICE
+        # ====================================================
+
+        material_service = (
+            MaterialService(
+                db
+            )
+        )
+
+
+        # ====================================================
+        # FLASHCARD SERVICE
+        # ====================================================
+
+        flashcard_service = (
+            MaterialFlashcardService(
+                material_service=
+                    material_service,
+
+                db=
+                    db,
+            )
+        )
+
+
+        # ====================================================
+        # GENERATE / REGENERATE
+        # ====================================================
+
+        return (
+            flashcard_service
+            .generate(
+                material_id=
+                    material_id,
+
+                current_user=
+                    current_user,
+
+                card_count=
+                    count,
+            )
+        )
+
+
+    # ========================================================
+    # MATERIAL NOT FOUND
+    # ========================================================
+
+    except MaterialNotFoundError:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_404_NOT_FOUND,
+
+            detail=
+                "Material not found.",
+        )
+
+
+    # ========================================================
+    # FILE NOT FOUND
+    # ========================================================
+
+    except (
+        ContentFileNotFoundError,
+        MaterialFileNotFoundError,
+    ) as exc:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_404_NOT_FOUND,
+
+            detail=
+                str(exc)
+                or
+                "Material file was not found.",
+        )
+
+
+    # ========================================================
+    # MATERIAL CANNOT BE PROCESSED
+    # ========================================================
+
+    except (
+        EmptyMaterialContentError,
+        UnsupportedContentTypeError,
+        UnsupportedMaterialFileError,
+    ) as exc:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+
+            detail=
+                str(exc)
+                or
+                "The material cannot be processed.",
+        )
+
+
+    # ========================================================
+    # AI CONFIGURATION
+    # ========================================================
+
+    except AIConfigurationError as exc:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+
+            detail=
+                str(exc),
+        )
+
+
+    # ========================================================
+    # AI PROVIDER FAILURE
     # ========================================================
 
     except AIProviderError as exc:

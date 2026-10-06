@@ -15,6 +15,10 @@ from app.schemas.ai import (
     SummaryContent,
 )
 
+from app.schemas.flashcard import (
+    FlashcardGenerationContent,
+)
+
 
 class AIService:
 
@@ -24,7 +28,8 @@ class AIService:
 
     def __init__(
         self,
-        provider: AIProvider | None = None,
+        provider:
+            AIProvider | None = None,
     ):
 
         self.provider = (
@@ -44,13 +49,12 @@ class AIService:
     ) -> str:
 
         return (
-            self.provider
-            .name
+            self.provider.name
         )
 
 
     # ========================================================
-    # GENERATE SUMMARY FROM TEXT
+    # TEXT SUMMARY
     # ========================================================
 
     def generate_summary(
@@ -60,7 +64,8 @@ class AIService:
 
         clean_text = (
             text
-            or ""
+            or
+            ""
         ).strip()
 
 
@@ -81,10 +86,7 @@ class AIService:
 
 
     # ========================================================
-    # EXTRACT TEXT FROM IMAGE
-    #
-    # Retained for future OCR-style features.
-    # Summary generation no longer depends on it.
+    # IMAGE TEXT EXTRACTION
     # ========================================================
 
     def extract_text_from_image(
@@ -96,8 +98,7 @@ class AIService:
         try:
 
             image_bytes = (
-                file_path
-                .read_bytes()
+                file_path.read_bytes()
             )
 
         except OSError as exc:
@@ -127,7 +128,7 @@ class AIService:
 
 
     # ========================================================
-    # GENERATE SUMMARY DIRECTLY FROM IMAGE
+    # DIRECT IMAGE SUMMARY
     # ========================================================
 
     def generate_summary_from_image(
@@ -139,8 +140,7 @@ class AIService:
         try:
 
             image_bytes = (
-                file_path
-                .read_bytes()
+                file_path.read_bytes()
             )
 
         except OSError as exc:
@@ -165,5 +165,112 @@ class AIService:
 
                 mime_type=
                     mime_type,
+            )
+        )
+
+
+    # ========================================================
+    # TEXT FLASHCARDS
+    # ========================================================
+
+    def generate_flashcards(
+        self,
+        text: str,
+        card_count: int = 8,
+    ) -> FlashcardGenerationContent:
+
+        clean_text = (
+            text
+            or
+            ""
+        ).strip()
+
+
+        if not clean_text:
+
+            raise AIResponseError(
+                "No study content was provided "
+                "for flashcard generation."
+            )
+
+
+        if (
+            card_count < 1
+            or
+            card_count > 20
+        ):
+
+            raise ValueError(
+                "Flashcard count must be "
+                "between 1 and 20."
+            )
+
+
+        return (
+            self.provider
+            .generate_flashcards(
+                text=
+                    clean_text,
+
+                card_count=
+                    card_count,
+            )
+        )
+
+
+    # ========================================================
+    # IMAGE FLASHCARDS
+    # ========================================================
+
+    def generate_flashcards_from_image(
+        self,
+        file_path: Path,
+        mime_type: str,
+        card_count: int = 8,
+    ) -> FlashcardGenerationContent:
+
+        if (
+            card_count < 1
+            or
+            card_count > 20
+        ):
+
+            raise ValueError(
+                "Flashcard count must be "
+                "between 1 and 20."
+            )
+
+
+        try:
+
+            image_bytes = (
+                file_path.read_bytes()
+            )
+
+        except OSError as exc:
+
+            raise AIResponseError(
+                "Unable to read the stored image."
+            ) from exc
+
+
+        if not image_bytes:
+
+            raise AIResponseError(
+                "The stored image is empty."
+            )
+
+
+        return (
+            self.provider
+            .generate_flashcards_from_image(
+                image_bytes=
+                    image_bytes,
+
+                mime_type=
+                    mime_type,
+
+                card_count=
+                    card_count,
             )
         )

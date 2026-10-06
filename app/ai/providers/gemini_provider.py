@@ -16,6 +16,10 @@ from app.schemas.ai import (
     SummaryContent,
 )
 
+from app.schemas.flashcard import (
+    FlashcardGenerationContent,
+)
+
 
 class GeminiProvider(
     AIProvider
@@ -820,4 +824,501 @@ class GeminiProvider(
 
             raise AIResponseError(
                 "Gemini image analysis failed."
+            ) from exc
+
+            # ========================================================
+    # GENERATE FLASHCARDS FROM TEXT
+    #
+    # Used by:
+    # - Text material
+    # - PDF extracted text
+    # ========================================================
+
+    def generate_flashcards(
+        self,
+        text: str,
+        card_count: int,
+    ) -> FlashcardGenerationContent:
+
+        clean_text = (
+            text
+            or
+            ""
+        ).strip()
+
+
+        if not clean_text:
+
+            raise AIResponseError(
+                "No study content was provided "
+                "for flashcard generation."
+            )
+
+
+        prompt = (
+            "You are LearnLoop AI, "
+            "an academic study assistant.\n\n"
+
+            f"Create exactly {card_count} useful "
+            "study flashcards from the study "
+            "material below.\n\n"
+
+            "Requirements:\n"
+
+            "- Use only information supported "
+            "by the material.\n"
+
+            "- Do not invent facts.\n"
+
+            "- Each flashcard front must test "
+            "one clear concept.\n"
+
+            "- Use short questions, terms, "
+            "or recall prompts on the front.\n"
+
+            "- The back must contain a concise "
+            "and accurate answer.\n"
+
+            "- Prefer important concepts rather "
+            "than insignificant details.\n"
+
+            "- Avoid duplicate flashcards.\n"
+
+            "- Make the cards useful for "
+            "active recall and revision.\n"
+
+            "- Do not prefix cards with labels "
+            "such as Card 1, Card 2, etc.\n\n"
+
+            "STUDY MATERIAL:\n\n"
+
+            f"{clean_text}"
+        )
+
+
+        try:
+
+            interaction = (
+                self.client
+                .interactions
+                .create(
+                    model=
+                        self.model,
+
+                    input=
+                        prompt,
+
+                    response_format={
+                        "type":
+                            "text",
+
+                        "mime_type":
+                            "application/json",
+
+                        "schema":
+                            FlashcardGenerationContent
+                            .model_json_schema(),
+                    },
+                )
+            )
+
+
+            response_text = (
+                interaction
+                .output_text
+                or
+                ""
+            ).strip()
+
+
+            if not response_text:
+
+                raise AIResponseError(
+                    "Gemini returned an empty "
+                    "flashcard response."
+                )
+
+
+            result = (
+                FlashcardGenerationContent
+                .model_validate_json(
+                    response_text
+                )
+            )
+
+
+            if not result.cards:
+
+                raise AIResponseError(
+                    "Gemini returned no "
+                    "flashcards."
+                )
+
+
+            return result
+
+
+        except AIResponseError:
+
+            raise
+
+
+        except Exception as exc:
+
+            print(
+                "[Gemini text flashcard error]"
+            )
+
+
+            print(
+                "Type:",
+                type(exc).__name__,
+            )
+
+
+            print(
+                "Message:",
+                str(exc),
+            )
+
+
+            print(
+                "Model:",
+                self.model,
+            )
+
+
+            raise AIResponseError(
+                "Gemini flashcard "
+                "generation failed."
+            ) from exc
+
+            # ========================================================
+    # GENERATE FLASHCARDS DIRECTLY FROM IMAGE
+    #
+    # Used by:
+    # - Gallery image
+    # - Camera image
+    #
+    # IMPORTANT:
+    # We do not request verbatim transcription.
+    # We ask Gemini to understand and paraphrase the
+    # educational content to avoid RECITATION issues.
+    # ========================================================
+
+    def generate_flashcards_from_image(
+        self,
+        image_bytes: bytes,
+        mime_type: str,
+        card_count: int,
+    ) -> FlashcardGenerationContent:
+
+        if not image_bytes:
+
+            raise AIResponseError(
+                "The image file is empty."
+            )
+
+
+        resolved_mime_type = (
+            self
+            ._resolve_image_mime_type(
+                image_bytes=
+                    image_bytes,
+
+                declared_mime_type=
+                    mime_type,
+            )
+        )
+
+
+        print(
+            "[Gemini direct image flashcards]"
+        )
+
+
+        print(
+            "Vision model:",
+            self.vision_model,
+        )
+
+
+        print(
+            "Declared MIME:",
+            mime_type,
+        )
+
+
+        print(
+            "Resolved MIME:",
+            resolved_mime_type,
+        )
+
+
+        print(
+            "Image bytes:",
+            len(
+                image_bytes
+            ),
+        )
+
+
+        print(
+            "Requested card count:",
+            card_count,
+        )
+
+
+        prompt = (
+            "You are LearnLoop AI, "
+            "an academic study assistant.\n\n"
+
+            "Analyze the attached image as "
+            "study material.\n\n"
+
+            f"Create exactly {card_count} useful "
+            "study flashcards from the educational "
+            "content that can reasonably be "
+            "understood from the image.\n\n"
+
+            "The image may contain:\n"
+
+            "- lecture notes\n"
+            "- handwritten notes\n"
+            "- printed notes\n"
+            "- presentation slides\n"
+            "- diagrams\n"
+            "- source code\n"
+            "- an IDE screenshot\n"
+            "- terminal output\n\n"
+
+            "Requirements:\n"
+
+            "- Use only information reasonably "
+            "supported by the image.\n"
+
+            "- Do not invent unreadable content.\n"
+
+            "- Each front must test one clear "
+            "concept.\n"
+
+            "- Keep questions and prompts concise.\n"
+
+            "- Keep answers concise and accurate.\n"
+
+            "- Avoid duplicate cards.\n"
+
+            "- Prioritize the most important "
+            "educational concepts.\n"
+
+            "- If source code is visible, create "
+            "cards about what the code does, its "
+            "concepts, classes, methods, APIs, "
+            "patterns, or behavior.\n"
+
+            "- Do NOT reproduce large passages "
+            "of source code or text verbatim.\n"
+
+            "- Paraphrase the educational meaning.\n"
+
+            "- Ignore unrelated toolbars, status "
+            "bars, meeting controls, desktop UI, "
+            "and application chrome.\n"
+
+            "- Do not prefix cards with labels "
+            "such as Card 1 or Card 2."
+        )
+
+
+        try:
+
+            # =================================================
+            # IMAGE INPUT
+            # =================================================
+
+            image_part = (
+                types.Part.from_bytes(
+                    data=
+                        image_bytes,
+
+                    mime_type=
+                        resolved_mime_type,
+                )
+            )
+
+
+            # =================================================
+            # STRUCTURED MULTIMODAL GENERATION
+            # =================================================
+
+            response = (
+                self.client
+                .models
+                .generate_content(
+                    model=
+                        self.vision_model,
+
+                    contents=[
+                        prompt,
+                        image_part,
+                    ],
+
+                    config=
+                        types.GenerateContentConfig(
+                            temperature=
+                                0.2,
+
+                            media_resolution=
+                                types
+                                .MediaResolution
+                                .MEDIA_RESOLUTION_HIGH,
+
+                            response_mime_type=
+                                "application/json",
+
+                            response_schema=
+                                FlashcardGenerationContent,
+                        ),
+                )
+            )
+
+
+            # =================================================
+            # PREFER SDK PARSED RESPONSE
+            # =================================================
+
+            parsed = getattr(
+                response,
+                "parsed",
+                None,
+            )
+
+
+            if isinstance(
+                parsed,
+                FlashcardGenerationContent,
+            ):
+
+                if not parsed.cards:
+
+                    raise AIResponseError(
+                        "Gemini returned no "
+                        "flashcards."
+                    )
+
+
+                print(
+                    "[Gemini direct image "
+                    "flashcards success]"
+                )
+
+
+                return parsed
+
+
+            # =================================================
+            # FALLBACK TO RAW JSON
+            # =================================================
+
+            response_text = (
+                response.text
+                or
+                ""
+            ).strip()
+
+
+            if not response_text:
+
+                finish_reason = (
+                    self
+                    ._get_finish_reason(
+                        response
+                    )
+                )
+
+
+                print(
+                    "[Gemini image "
+                    "flashcards empty]"
+                )
+
+
+                print(
+                    "Finish reason:",
+                    finish_reason,
+                )
+
+
+                raise AIResponseError(
+                    "Gemini could not generate "
+                    "flashcards from this image. "
+                    f"Finish reason: {finish_reason}"
+                )
+
+
+            result = (
+                FlashcardGenerationContent
+                .model_validate_json(
+                    response_text
+                )
+            )
+
+
+            if not result.cards:
+
+                raise AIResponseError(
+                    "Gemini returned no "
+                    "flashcards."
+                )
+
+
+            print(
+                "[Gemini direct image "
+                "flashcards success]"
+            )
+
+
+            return result
+
+
+        except AIResponseError:
+
+            raise
+
+
+        except Exception as exc:
+
+            print(
+                "[Gemini direct image "
+                "flashcard error]"
+            )
+
+
+            print(
+                "Type:",
+                type(exc).__name__,
+            )
+
+
+            print(
+                "Message:",
+                str(exc),
+            )
+
+
+            print(
+                "Vision model:",
+                self.vision_model,
+            )
+
+
+            print(
+                "Resolved MIME:",
+                resolved_mime_type,
+            )
+
+
+            raise AIResponseError(
+                "Gemini image flashcard "
+                "generation failed."
             ) from exc

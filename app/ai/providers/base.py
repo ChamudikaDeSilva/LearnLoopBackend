@@ -7,9 +7,13 @@ from app.schemas.ai import (
     SummaryContent,
 )
 
+from app.schemas.flashcard import (
+    FlashcardGenerationContent,
+)
+
 
 # ============================================================
-# AI EXCEPTIONS
+# EXCEPTIONS
 # ============================================================
 
 
@@ -32,7 +36,7 @@ class AIResponseError(
 
 
 # ============================================================
-# AI PROVIDER CONTRACT
+# AI PROVIDER
 # ============================================================
 
 
@@ -53,7 +57,7 @@ class AIProvider(
 
 
     # ========================================================
-    # TEXT SUMMARY
+    # SUMMARY
     # ========================================================
 
     @abstractmethod
@@ -65,10 +69,7 @@ class AIProvider(
 
 
     # ========================================================
-    # IMAGE TEXT EXTRACTION
-    #
-    # Kept for future use.
-    # Material summary no longer depends on this method.
+    # IMAGE EXTRACTION
     # ========================================================
 
     @abstractmethod
@@ -82,8 +83,6 @@ class AIProvider(
 
     # ========================================================
     # DIRECT IMAGE SUMMARY
-    #
-    # Not abstract so other providers do not immediately break.
     # ========================================================
 
     def generate_summary_from_image(
@@ -95,4 +94,37 @@ class AIProvider(
         raise AIResponseError(
             "This AI provider does not support "
             "direct image summary generation."
+        )
+
+
+    # ========================================================
+    # TEXT FLASHCARDS
+    # ========================================================
+
+    def generate_flashcards(
+        self,
+        text: str,
+        card_count: int,
+    ) -> FlashcardGenerationContent:
+
+        raise AIResponseError(
+            "This AI provider does not support "
+            "flashcard generation."
+        )
+
+
+    # ========================================================
+    # IMAGE FLASHCARDS
+    # ========================================================
+
+    def generate_flashcards_from_image(
+        self,
+        image_bytes: bytes,
+        mime_type: str,
+        card_count: int,
+    ) -> FlashcardGenerationContent:
+
+        raise AIResponseError(
+            "This AI provider does not support "
+            "direct image flashcard generation."
         )

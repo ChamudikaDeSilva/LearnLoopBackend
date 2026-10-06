@@ -1,3 +1,11 @@
+from app.models.flashcard import (
+    Flashcard,
+)
+
+from app.models.flashcard_set import (
+    FlashcardSet,
+)
+
 from app.models.material import (
     Material,
 )
@@ -20,4 +28,6 @@ __all__ = [
     "Subject",
     "Material",
     "MaterialSummary",
+    "FlashcardSet",
+    "Flashcard",
 ]

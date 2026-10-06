@@ -27,6 +27,8 @@ from app.core.database import (
 # ============================================================
 
 from app.models import (  # noqa: F401
+    Flashcard,
+    FlashcardSet,
     Material,
     MaterialSummary,
     Subject,
