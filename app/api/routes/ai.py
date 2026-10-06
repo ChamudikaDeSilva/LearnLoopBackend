@@ -41,6 +41,7 @@ from app.services.content_extraction_service import (
 
 from app.services.material_ai_service import (
     MaterialAIService,
+    MaterialSummaryNotFoundError,
 )
 
 from app.services.material_service import (
@@ -178,7 +179,84 @@ def extract_material_content(
 
 
 # ============================================================
-# GENERATE MATERIAL SUMMARY
+# GET SAVED MATERIAL SUMMARY
+# ============================================================
+
+
+@router.get(
+    "/materials/{material_id}/summary",
+    response_model=
+        MaterialSummaryResponse,
+)
+def get_material_summary(
+    material_id: int,
+
+    current_user: User = Depends(
+        get_current_user
+    ),
+
+    db: Session = Depends(
+        get_db
+    ),
+):
+
+    try:
+
+        material_service = (
+            MaterialService(
+                db
+            )
+        )
+
+
+        material_ai_service = (
+            MaterialAIService(
+                material_service=
+                    material_service,
+
+                db=
+                    db,
+            )
+        )
+
+
+        return (
+            material_ai_service
+            .get_saved_summary(
+                material_id=
+                    material_id,
+
+                current_user=
+                    current_user,
+            )
+        )
+
+
+    except MaterialNotFoundError:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_404_NOT_FOUND,
+
+            detail=
+                "Material not found.",
+        )
+
+
+    except MaterialSummaryNotFoundError:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_404_NOT_FOUND,
+
+            detail=
+                "No saved summary exists "
+                "for this material.",
+        )
+
+
+# ============================================================
+# GENERATE / REGENERATE MATERIAL SUMMARY
 # ============================================================
 
 
@@ -208,16 +286,19 @@ def generate_material_summary(
         )
 
 
-        ai_service = (
+        material_ai_service = (
             MaterialAIService(
                 material_service=
-                    material_service
+                    material_service,
+
+                db=
+                    db,
             )
         )
 
 
         return (
-            ai_service
+            material_ai_service
             .generate_summary(
                 material_id=
                     material_id,
@@ -244,7 +325,7 @@ def generate_material_summary(
 
 
     # ========================================================
-    # STORED FILE NOT FOUND
+    # FILE NOT FOUND
     # ========================================================
 
     except (
@@ -258,10 +339,8 @@ def generate_material_summary(
 
             detail=
                 str(exc)
-                or (
-                    "Material file "
-                    "was not found."
-                ),
+                or
+                "Material file was not found.",
         )
 
 
@@ -281,10 +360,8 @@ def generate_material_summary(
 
             detail=
                 str(exc)
-                or (
-                    "The material "
-                    "cannot be processed."
-                ),
+                or
+                "The material cannot be processed.",
         )
 
 
@@ -304,7 +381,7 @@ def generate_material_summary(
 
 
     # ========================================================
-    # AI PROVIDER ERROR
+    # AI PROVIDER
     # ========================================================
 
     except AIProviderError as exc:

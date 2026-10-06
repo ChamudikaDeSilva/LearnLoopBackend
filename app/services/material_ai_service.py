@@ -1,9 +1,21 @@
+from sqlalchemy.orm import (
+    Session,
+)
+
 from app.models.material import (
     Material,
 )
 
+from app.models.material_summary import (
+    MaterialSummary,
+)
+
 from app.models.user import (
     User,
+)
+
+from app.repositories.material_summary_repository import (
+    MaterialSummaryRepository,
 )
 
 from app.schemas.ai import (
@@ -25,6 +37,22 @@ from app.services.material_service import (
 )
 
 
+# ============================================================
+# EXCEPTIONS
+# ============================================================
+
+
+class MaterialSummaryNotFoundError(
+    Exception
+):
+    pass
+
+
+# ============================================================
+# MATERIAL AI SERVICE
+# ============================================================
+
+
 class MaterialAIService:
 
     # ========================================================
@@ -33,8 +61,12 @@ class MaterialAIService:
 
     def __init__(
         self,
-        material_service: MaterialService,
-        ai_service: AIService | None = None,
+        material_service:
+            MaterialService,
+        db:
+            Session,
+        ai_service:
+            AIService | None = None,
     ):
 
         self.material_service = (
@@ -49,17 +81,20 @@ class MaterialAIService:
 
         self.ai_service = (
             ai_service
-            or AIService()
+            or
+            AIService()
+        )
+
+
+        self.summary_repository = (
+            MaterialSummaryRepository(
+                db
+            )
         )
 
 
     # ========================================================
-    # GET USABLE TEXT
-    #
-    # Only Text and PDF use this path now.
-    #
-    # Image and Camera are summarized directly from the
-    # original image through Gemini multimodal analysis.
+    # GET TEXT / PDF CONTENT
     # ========================================================
 
     def get_material_text(
@@ -90,6 +125,102 @@ class MaterialAIService:
 
 
     # ========================================================
+    # MAP STORED RECORD TO API RESPONSE
+    # ========================================================
+
+    def _to_response(
+        self,
+        material: Material,
+        stored: MaterialSummary,
+    ) -> MaterialSummaryResponse:
+
+        return MaterialSummaryResponse(
+            material_id=
+                material.id,
+
+            title=
+                material.title,
+
+            source_type=
+                stored.source_type,
+
+            provider=
+                stored.provider,
+
+            extracted_character_count=
+                stored
+                .extracted_character_count,
+
+            summary=
+                stored.summary,
+
+            key_points=
+                list(
+                    stored.key_points
+                    or
+                    []
+                ),
+
+            study_tips=
+                list(
+                    stored.study_tips
+                    or
+                    []
+                ),
+        )
+
+
+    # ========================================================
+    # SAVE GENERATED SUMMARY
+    # ========================================================
+
+    def _save_summary(
+        self,
+        *,
+        material: Material,
+        extracted_character_count: int,
+        summary_text: str,
+        key_points: list[str],
+        study_tips: list[str],
+    ) -> MaterialSummaryResponse:
+
+        stored = (
+            self.summary_repository
+            .upsert(
+                material_id=
+                    material.id,
+
+                provider=
+                    self.ai_service
+                    .provider_name,
+
+                source_type=
+                    material.source_type,
+
+                extracted_character_count=
+                    extracted_character_count,
+
+                summary=
+                    summary_text,
+
+                key_points=
+                    key_points,
+
+                study_tips=
+                    study_tips,
+            )
+        )
+
+
+        return (
+            self._to_response(
+                material,
+                stored,
+            )
+        )
+
+
+    # ========================================================
     # GENERATE TEXT / PDF SUMMARY
     # ========================================================
 
@@ -105,7 +236,7 @@ class MaterialAIService:
         )
 
 
-        summary = (
+        generated = (
             self.ai_service
             .generate_summary(
                 extracted.text
@@ -113,46 +244,29 @@ class MaterialAIService:
         )
 
 
-        return MaterialSummaryResponse(
-            material_id=
-                material.id,
+        return (
+            self._save_summary(
+                material=
+                    material,
 
-            title=
-                material.title,
+                extracted_character_count=
+                    extracted
+                    .character_count,
 
-            source_type=
-                material.source_type,
+                summary_text=
+                    generated.summary,
 
-            provider=
-                self.ai_service
-                .provider_name,
+                key_points=
+                    generated.key_points,
 
-            extracted_character_count=
-                extracted
-                .character_count,
-
-            summary=
-                summary.summary,
-
-            key_points=
-                summary.key_points,
-
-            study_tips=
-                summary.study_tips,
+                study_tips=
+                    generated.study_tips,
+            )
         )
 
 
     # ========================================================
     # GENERATE IMAGE / CAMERA SUMMARY
-    #
-    # IMPORTANT:
-    # No verbatim OCR step occurs here.
-    #
-    # Image
-    #   ↓
-    # Gemini multimodal understanding
-    #   ↓
-    # SummaryContent
     # ========================================================
 
     def _generate_image_summary(
@@ -180,7 +294,7 @@ class MaterialAIService:
         )
 
 
-        summary = (
+        generated = (
             self.ai_service
             .generate_summary_from_image(
                 file_path=
@@ -192,38 +306,30 @@ class MaterialAIService:
         )
 
 
-        return MaterialSummaryResponse(
-            material_id=
-                material.id,
+        return (
+            self._save_summary(
+                material=
+                    material,
 
-            title=
-                material.title,
+                # No intermediate OCR/transcript
+                # exists for direct multimodal summary.
+                extracted_character_count=
+                    0,
 
-            source_type=
-                material.source_type,
+                summary_text=
+                    generated.summary,
 
-            provider=
-                self.ai_service
-                .provider_name,
+                key_points=
+                    generated.key_points,
 
-            # No intermediate text extraction
-            # occurs for image/camera summary.
-            extracted_character_count=
-                0,
-
-            summary=
-                summary.summary,
-
-            key_points=
-                summary.key_points,
-
-            study_tips=
-                summary.study_tips,
+                study_tips=
+                    generated.study_tips,
+            )
         )
 
 
     # ========================================================
-    # GENERATE SUMMARY
+    # GENERATE / REGENERATE SUMMARY
     # ========================================================
 
     def generate_summary(
@@ -283,11 +389,50 @@ class MaterialAIService:
             )
 
 
-        # ====================================================
-        # UNSUPPORTED
-        # ====================================================
-
         raise UnsupportedContentTypeError(
             "Unsupported material source type: "
             f"{material.source_type}"
+        )
+
+
+    # ========================================================
+    # GET SAVED SUMMARY
+    # ========================================================
+
+    def get_saved_summary(
+        self,
+        material_id: int,
+        current_user: User,
+    ) -> MaterialSummaryResponse:
+
+        # This also verifies ownership.
+        material = (
+            self.material_service
+            .get_material(
+                material_id,
+                current_user,
+            )
+        )
+
+
+        stored = (
+            self.summary_repository
+            .get_by_material_id(
+                material.id
+            )
+        )
+
+
+        if stored is None:
+
+            raise (
+                MaterialSummaryNotFoundError()
+            )
+
+
+        return (
+            self._to_response(
+                material,
+                stored,
+            )
         )
