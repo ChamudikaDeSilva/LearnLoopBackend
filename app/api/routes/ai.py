@@ -36,6 +36,12 @@ from app.schemas.flashcard import (
     MaterialFlashcardsResponse,
 )
 
+from app.schemas.quiz import (
+    MaterialQuizResponse,
+    QuizSubmissionRequest,
+    QuizSubmissionResponse,
+)
+
 from app.services.content_extraction_service import (
     ContentExtractionError,
     ContentExtractionService,
@@ -52,6 +58,13 @@ from app.services.material_ai_service import (
 from app.services.material_flashcard_service import (
     FlashcardSetNotFoundError,
     MaterialFlashcardService,
+)
+
+from app.services.material_quiz_service import (
+    MaterialQuizNotFoundError,
+    MaterialQuizService,
+    QuizNotFoundError,
+    QuizSubmissionError,
 )
 
 from app.services.material_service import (
@@ -111,10 +124,6 @@ def extract_material_content(
 
     try:
 
-        # ====================================================
-        # GET MATERIAL
-        # ====================================================
-
         material = (
             material_service
             .get_material(
@@ -124,10 +133,6 @@ def extract_material_content(
         )
 
 
-        # ====================================================
-        # EXTRACT CONTENT
-        # ====================================================
-
         extracted = (
             extraction_service
             .extract(
@@ -135,10 +140,6 @@ def extract_material_content(
             )
         )
 
-
-        # ====================================================
-        # RESPONSE
-        # ====================================================
 
         return MaterialExtractionResponse(
             material_id=
@@ -158,10 +159,6 @@ def extract_material_content(
         )
 
 
-    # ========================================================
-    # MATERIAL NOT FOUND
-    # ========================================================
-
     except MaterialNotFoundError:
 
         raise HTTPException(
@@ -173,10 +170,6 @@ def extract_material_content(
         )
 
 
-    # ========================================================
-    # CONTENT FILE NOT FOUND
-    # ========================================================
-
     except ContentFileNotFoundError as exc:
 
         raise HTTPException(
@@ -187,10 +180,6 @@ def extract_material_content(
                 str(exc),
         )
 
-
-    # ========================================================
-    # INVALID / UNSUPPORTED MATERIAL
-    # ========================================================
 
     except (
         EmptyMaterialContentError,
@@ -205,10 +194,6 @@ def extract_material_content(
                 str(exc),
         )
 
-
-    # ========================================================
-    # EXTRACTION FAILURE
-    # ========================================================
 
     except ContentExtractionError as exc:
 
@@ -245,20 +230,12 @@ def get_material_summary(
 
     try:
 
-        # ====================================================
-        # MATERIAL SERVICE
-        # ====================================================
-
         material_service = (
             MaterialService(
                 db
             )
         )
 
-
-        # ====================================================
-        # MATERIAL AI SERVICE
-        # ====================================================
 
         material_ai_service = (
             MaterialAIService(
@@ -270,10 +247,6 @@ def get_material_summary(
             )
         )
 
-
-        # ====================================================
-        # LOAD SAVED SUMMARY
-        # ====================================================
 
         return (
             material_ai_service
@@ -287,10 +260,6 @@ def get_material_summary(
         )
 
 
-    # ========================================================
-    # MATERIAL NOT FOUND
-    # ========================================================
-
     except MaterialNotFoundError:
 
         raise HTTPException(
@@ -301,10 +270,6 @@ def get_material_summary(
                 "Material not found.",
         )
 
-
-    # ========================================================
-    # SUMMARY NOT FOUND
-    # ========================================================
 
     except MaterialSummaryNotFoundError:
 
@@ -342,20 +307,12 @@ def generate_material_summary(
 
     try:
 
-        # ====================================================
-        # MATERIAL SERVICE
-        # ====================================================
-
         material_service = (
             MaterialService(
                 db
             )
         )
 
-
-        # ====================================================
-        # MATERIAL AI SERVICE
-        # ====================================================
 
         material_ai_service = (
             MaterialAIService(
@@ -367,10 +324,6 @@ def generate_material_summary(
             )
         )
 
-
-        # ====================================================
-        # GENERATE SUMMARY
-        # ====================================================
 
         return (
             material_ai_service
@@ -384,10 +337,6 @@ def generate_material_summary(
         )
 
 
-    # ========================================================
-    # MATERIAL NOT FOUND
-    # ========================================================
-
     except MaterialNotFoundError:
 
         raise HTTPException(
@@ -398,10 +347,6 @@ def generate_material_summary(
                 "Material not found.",
         )
 
-
-    # ========================================================
-    # FILE NOT FOUND
-    # ========================================================
 
     except (
         ContentFileNotFoundError,
@@ -418,10 +363,6 @@ def generate_material_summary(
                 "Material file was not found.",
         )
 
-
-    # ========================================================
-    # MATERIAL CANNOT BE PROCESSED
-    # ========================================================
 
     except (
         EmptyMaterialContentError,
@@ -440,10 +381,6 @@ def generate_material_summary(
         )
 
 
-    # ========================================================
-    # AI CONFIGURATION
-    # ========================================================
-
     except AIConfigurationError as exc:
 
         raise HTTPException(
@@ -455,10 +392,6 @@ def generate_material_summary(
         )
 
 
-    # ========================================================
-    # AI PROVIDER
-    # ========================================================
-
     except AIProviderError as exc:
 
         raise HTTPException(
@@ -469,10 +402,6 @@ def generate_material_summary(
                 str(exc),
         )
 
-
-    # ========================================================
-    # VALIDATION
-    # ========================================================
 
     except ValueError as exc:
 
@@ -509,20 +438,12 @@ def get_material_flashcards(
 
     try:
 
-        # ====================================================
-        # MATERIAL SERVICE
-        # ====================================================
-
         material_service = (
             MaterialService(
                 db
             )
         )
 
-
-        # ====================================================
-        # FLASHCARD SERVICE
-        # ====================================================
 
         flashcard_service = (
             MaterialFlashcardService(
@@ -534,10 +455,6 @@ def get_material_flashcards(
             )
         )
 
-
-        # ====================================================
-        # LOAD SAVED FLASHCARDS
-        # ====================================================
 
         return (
             flashcard_service
@@ -551,10 +468,6 @@ def get_material_flashcards(
         )
 
 
-    # ========================================================
-    # MATERIAL NOT FOUND
-    # ========================================================
-
     except MaterialNotFoundError:
 
         raise HTTPException(
@@ -565,10 +478,6 @@ def get_material_flashcards(
                 "Material not found.",
         )
 
-
-    # ========================================================
-    # FLASHCARDS NOT FOUND
-    # ========================================================
 
     except FlashcardSetNotFoundError:
 
@@ -595,22 +504,259 @@ def get_material_flashcards(
 def generate_material_flashcards(
     material_id: int,
 
-    # ========================================================
-    # NUMBER OF FLASHCARDS
-    #
-    # Example:
-    #
-    # POST
-    # /api/v1/ai/materials/21/flashcards?count=8
-    #
-    # Minimum: 4
-    # Maximum: 20
-    # Default: 8
-    # ========================================================
-
     count: int = Query(
         default=8,
         ge=4,
+        le=20,
+    ),
+
+    current_user: User = Depends(
+        get_current_user
+    ),
+
+    db: Session = Depends(
+        get_db
+    ),
+):
+
+    try:
+
+        material_service = (
+            MaterialService(
+                db
+            )
+        )
+
+
+        flashcard_service = (
+            MaterialFlashcardService(
+                material_service=
+                    material_service,
+
+                db=
+                    db,
+            )
+        )
+
+
+        return (
+            flashcard_service
+            .generate(
+                material_id=
+                    material_id,
+
+                current_user=
+                    current_user,
+
+                card_count=
+                    count,
+            )
+        )
+
+
+    except MaterialNotFoundError:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_404_NOT_FOUND,
+
+            detail=
+                "Material not found.",
+        )
+
+
+    except (
+        ContentFileNotFoundError,
+        MaterialFileNotFoundError,
+    ) as exc:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_404_NOT_FOUND,
+
+            detail=
+                str(exc)
+                or
+                "Material file was not found.",
+        )
+
+
+    except (
+        EmptyMaterialContentError,
+        UnsupportedContentTypeError,
+        UnsupportedMaterialFileError,
+    ) as exc:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+
+            detail=
+                str(exc)
+                or
+                "The material cannot be processed.",
+        )
+
+
+    except AIConfigurationError as exc:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+
+            detail=
+                str(exc),
+        )
+
+
+    except AIProviderError as exc:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_502_BAD_GATEWAY,
+
+            detail=
+                str(exc),
+        )
+
+
+    except ValueError as exc:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+
+            detail=
+                str(exc),
+        )
+
+
+# ============================================================
+# GET LATEST SAVED MATERIAL QUIZ
+#
+# Returns the newest quiz generated for this material.
+#
+# IMPORTANT:
+# correct_index and explanation are NOT included.
+# ============================================================
+
+
+@router.get(
+    "/materials/{material_id}/quiz",
+    response_model=
+        MaterialQuizResponse,
+)
+def get_material_quiz(
+    material_id: int,
+
+    current_user: User = Depends(
+        get_current_user
+    ),
+
+    db: Session = Depends(
+        get_db
+    ),
+):
+
+    try:
+
+        # ====================================================
+        # MATERIAL SERVICE
+        # ====================================================
+
+        material_service = (
+            MaterialService(
+                db
+            )
+        )
+
+
+        # ====================================================
+        # QUIZ SERVICE
+        # ====================================================
+
+        quiz_service = (
+            MaterialQuizService(
+                material_service=
+                    material_service,
+
+                db=
+                    db,
+            )
+        )
+
+
+        # ====================================================
+        # LOAD LATEST QUIZ
+        # ====================================================
+
+        return (
+            quiz_service
+            .get_latest(
+                material_id=
+                    material_id,
+
+                current_user=
+                    current_user,
+            )
+        )
+
+
+    # ========================================================
+    # MATERIAL NOT FOUND
+    # ========================================================
+
+    except MaterialNotFoundError:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_404_NOT_FOUND,
+
+            detail=
+                "Material not found.",
+        )
+
+
+    # ========================================================
+    # NO SAVED QUIZ
+    # ========================================================
+
+    except MaterialQuizNotFoundError:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_404_NOT_FOUND,
+
+            detail=
+                "No saved quiz exists "
+                "for this material.",
+        )
+
+
+# ============================================================
+# GENERATE NEW MATERIAL QUIZ
+#
+# IMPORTANT:
+#
+# Unlike Flashcards, this creates a NEW quiz version.
+#
+# Example:
+#
+# POST /api/v1/ai/materials/12/quiz?count=10
+# ============================================================
+
+
+@router.post(
+    "/materials/{material_id}/quiz",
+    response_model=
+        MaterialQuizResponse,
+)
+def generate_material_quiz(
+    material_id: int,
+
+    count: int = Query(
+        default=10,
+        ge=5,
         le=20,
     ),
 
@@ -637,11 +783,11 @@ def generate_material_flashcards(
 
 
         # ====================================================
-        # FLASHCARD SERVICE
+        # QUIZ SERVICE
         # ====================================================
 
-        flashcard_service = (
-            MaterialFlashcardService(
+        quiz_service = (
+            MaterialQuizService(
                 material_service=
                     material_service,
 
@@ -652,11 +798,11 @@ def generate_material_flashcards(
 
 
         # ====================================================
-        # GENERATE / REGENERATE
+        # GENERATE NEW QUIZ VERSION
         # ====================================================
 
         return (
-            flashcard_service
+            quiz_service
             .generate(
                 material_id=
                     material_id,
@@ -664,7 +810,7 @@ def generate_material_flashcards(
                 current_user=
                     current_user,
 
-                card_count=
+                question_count=
                     count,
             )
         )
@@ -686,7 +832,7 @@ def generate_material_flashcards(
 
 
     # ========================================================
-    # FILE NOT FOUND
+    # MATERIAL FILE NOT FOUND
     # ========================================================
 
     except (
@@ -727,6 +873,21 @@ def generate_material_flashcards(
 
 
     # ========================================================
+    # EXTRACTION FAILURE
+    # ========================================================
+
+    except ContentExtractionError as exc:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+
+            detail=
+                str(exc),
+        )
+
+
+    # ========================================================
     # AI CONFIGURATION
     # ========================================================
 
@@ -742,7 +903,7 @@ def generate_material_flashcards(
 
 
     # ========================================================
-    # AI PROVIDER FAILURE
+    # GEMINI / AI FAILURE
     # ========================================================
 
     except AIProviderError as exc:
@@ -750,6 +911,162 @@ def generate_material_flashcards(
         raise HTTPException(
             status_code=
                 status.HTTP_502_BAD_GATEWAY,
+
+            detail=
+                str(exc),
+        )
+
+
+    # ========================================================
+    # VALIDATION
+    # ========================================================
+
+    except ValueError as exc:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+
+            detail=
+                str(exc),
+        )
+
+
+# ============================================================
+# SUBMIT QUIZ
+#
+# Example body:
+#
+# {
+#   "answers": [
+#       {
+#           "question_id": 1,
+#           "selected_index": 2
+#       },
+#       {
+#           "question_id": 2,
+#           "selected_index": 0
+#       }
+#   ]
+# }
+#
+# The backend:
+#
+# 1. validates quiz ownership
+# 2. checks the answers
+# 3. calculates score
+# 4. stores quiz_attempt
+# 5. stores quiz_attempt_answers
+# 6. returns correct answers + explanations
+# ============================================================
+
+
+@router.post(
+    "/quizzes/{quiz_id}/submit",
+    response_model=
+        QuizSubmissionResponse,
+)
+def submit_material_quiz(
+    quiz_id: int,
+
+    submission:
+        QuizSubmissionRequest,
+
+    current_user: User = Depends(
+        get_current_user
+    ),
+
+    db: Session = Depends(
+        get_db
+    ),
+):
+
+    try:
+
+        # ====================================================
+        # MATERIAL SERVICE
+        # ====================================================
+
+        material_service = (
+            MaterialService(
+                db
+            )
+        )
+
+
+        # ====================================================
+        # QUIZ SERVICE
+        # ====================================================
+
+        quiz_service = (
+            MaterialQuizService(
+                material_service=
+                    material_service,
+
+                db=
+                    db,
+            )
+        )
+
+
+        # ====================================================
+        # SUBMIT + SCORE
+        # ====================================================
+
+        return (
+            quiz_service
+            .submit(
+                quiz_id=
+                    quiz_id,
+
+                current_user=
+                    current_user,
+
+                submission=
+                    submission,
+            )
+        )
+
+
+    # ========================================================
+    # QUIZ NOT FOUND
+    # ========================================================
+
+    except QuizNotFoundError:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_404_NOT_FOUND,
+
+            detail=
+                "Quiz not found.",
+        )
+
+
+    # ========================================================
+    # MATERIAL / OWNERSHIP NOT FOUND
+    # ========================================================
+
+    except MaterialNotFoundError:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_404_NOT_FOUND,
+
+            detail=
+                "Material not found.",
+        )
+
+
+    # ========================================================
+    # INVALID SUBMISSION
+    # ========================================================
+
+    except QuizSubmissionError as exc:
+
+        raise HTTPException(
+            status_code=
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
 
             detail=
                 str(exc),

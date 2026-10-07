@@ -11,6 +11,10 @@ from app.schemas.flashcard import (
     FlashcardGenerationContent,
 )
 
+from app.schemas.quiz import (
+    QuizGenerationContent,
+)
+
 
 # ============================================================
 # EXCEPTIONS
@@ -127,4 +131,37 @@ class AIProvider(
         raise AIResponseError(
             "This AI provider does not support "
             "direct image flashcard generation."
+        )
+
+
+    # ========================================================
+    # TEXT QUIZ
+    # ========================================================
+
+    def generate_quiz(
+        self,
+        text: str,
+        question_count: int,
+    ) -> QuizGenerationContent:
+
+        raise AIResponseError(
+            "This AI provider does not support "
+            "quiz generation."
+        )
+
+
+    # ========================================================
+    # IMAGE QUIZ
+    # ========================================================
+
+    def generate_quiz_from_image(
+        self,
+        image_bytes: bytes,
+        mime_type: str,
+        question_count: int,
+    ) -> QuizGenerationContent:
+
+        raise AIResponseError(
+            "This AI provider does not support "
+            "direct image quiz generation."
         )

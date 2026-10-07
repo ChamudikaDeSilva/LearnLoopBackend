@@ -30,7 +30,11 @@ from app.models import (  # noqa: F401
     Flashcard,
     FlashcardSet,
     Material,
+    MaterialQuiz,
     MaterialSummary,
+    QuizAttempt,
+    QuizAttemptAnswer,
+    QuizQuestion,
     Subject,
     User,
 )

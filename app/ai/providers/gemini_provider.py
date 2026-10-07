@@ -20,6 +20,10 @@ from app.schemas.flashcard import (
     FlashcardGenerationContent,
 )
 
+from app.schemas.quiz import (
+    QuizGenerationContent,
+)
+
 
 class GeminiProvider(
     AIProvider
@@ -1320,5 +1324,523 @@ class GeminiProvider(
 
             raise AIResponseError(
                 "Gemini image flashcard "
+                "generation failed."
+            ) from exc
+
+            # ========================================================
+    # GENERATE QUIZ FROM TEXT
+    #
+    # Used by:
+    # - Text material
+    # - PDF extracted text
+    # ========================================================
+
+    def generate_quiz(
+        self,
+        text: str,
+        question_count: int,
+    ) -> QuizGenerationContent:
+
+        clean_text = (
+            text
+            or
+            ""
+        ).strip()
+
+
+        if not clean_text:
+
+            raise AIResponseError(
+                "No study content was provided "
+                "for quiz generation."
+            )
+
+
+        prompt = (
+            "You are LearnLoop AI, "
+            "an academic study assistant.\n\n"
+
+            f"Create exactly {question_count} "
+            "multiple-choice questions from the "
+            "study material below.\n\n"
+
+            "Each question MUST have exactly "
+            "four answer options.\n\n"
+
+            "Requirements:\n"
+
+            "- Use only information supported "
+            "by the study material.\n"
+
+            "- Do not invent facts.\n"
+
+            "- Each question must test one "
+            "clear concept.\n"
+
+            "- Use exactly four distinct "
+            "answer options.\n"
+
+            "- Exactly one option must be "
+            "correct.\n"
+
+            "- correct_index must be the "
+            "zero-based index of the correct "
+            "option: 0, 1, 2, or 3.\n"
+
+            "- Incorrect answers should be "
+            "plausible but clearly wrong.\n"
+
+            "- Avoid duplicate questions.\n"
+
+            "- Avoid trivial wording differences "
+            "between questions.\n"
+
+            "- Prefer important concepts over "
+            "minor details.\n"
+
+            "- Include a concise explanation "
+            "for the correct answer.\n"
+
+            "- Do not include labels such as "
+            "'Question 1' in the question text.\n"
+
+            "- Vary the position of correct "
+            "answers across the quiz.\n"
+
+            "- Make the quiz useful for "
+            "academic revision.\n\n"
+
+            "STUDY MATERIAL:\n\n"
+
+            f"{clean_text}"
+        )
+
+
+        try:
+
+            interaction = (
+                self.client
+                .interactions
+                .create(
+                    model=
+                        self.model,
+
+                    input=
+                        prompt,
+
+                    response_format={
+                        "type":
+                            "text",
+
+                        "mime_type":
+                            "application/json",
+
+                        "schema":
+                            QuizGenerationContent
+                            .model_json_schema(),
+                    },
+                )
+            )
+
+
+            response_text = (
+                interaction
+                .output_text
+                or
+                ""
+            ).strip()
+
+
+            if not response_text:
+
+                raise AIResponseError(
+                    "Gemini returned an empty "
+                    "quiz response."
+                )
+
+
+            result = (
+                QuizGenerationContent
+                .model_validate_json(
+                    response_text
+                )
+            )
+
+
+            if not result.questions:
+
+                raise AIResponseError(
+                    "Gemini returned no "
+                    "quiz questions."
+                )
+
+
+            return result
+
+
+        except AIResponseError:
+
+            raise
+
+
+        except Exception as exc:
+
+            print(
+                "[Gemini text quiz error]"
+            )
+
+
+            print(
+                "Type:",
+                type(exc).__name__,
+            )
+
+
+            print(
+                "Message:",
+                str(exc),
+            )
+
+
+            print(
+                "Model:",
+                self.model,
+            )
+
+
+            raise AIResponseError(
+                "Gemini quiz generation failed."
+            ) from exc
+            # ========================================================
+    # GENERATE QUIZ DIRECTLY FROM IMAGE
+    #
+    # Used by:
+    # - Gallery image
+    # - Camera capture
+    # ========================================================
+
+    def generate_quiz_from_image(
+        self,
+        image_bytes: bytes,
+        mime_type: str,
+        question_count: int,
+    ) -> QuizGenerationContent:
+
+        if not image_bytes:
+
+            raise AIResponseError(
+                "The image file is empty."
+            )
+
+
+        resolved_mime_type = (
+            self
+            ._resolve_image_mime_type(
+                image_bytes=
+                    image_bytes,
+
+                declared_mime_type=
+                    mime_type,
+            )
+        )
+
+
+        print(
+            "[Gemini direct image quiz]"
+        )
+
+
+        print(
+            "Vision model:",
+            self.vision_model,
+        )
+
+
+        print(
+            "Declared MIME:",
+            mime_type,
+        )
+
+
+        print(
+            "Resolved MIME:",
+            resolved_mime_type,
+        )
+
+
+        print(
+            "Image bytes:",
+            len(
+                image_bytes
+            ),
+        )
+
+
+        print(
+            "Requested questions:",
+            question_count,
+        )
+
+
+        prompt = (
+            "You are LearnLoop AI, "
+            "an academic study assistant.\n\n"
+
+            "Analyze the attached image as "
+            "study material.\n\n"
+
+            f"Create exactly {question_count} "
+            "multiple-choice questions from the "
+            "educational content that can "
+            "reasonably be understood from "
+            "the image.\n\n"
+
+            "Each question MUST have exactly "
+            "four answer options.\n\n"
+
+            "The image may contain:\n"
+
+            "- handwritten notes\n"
+            "- printed notes\n"
+            "- lecture slides\n"
+            "- textbook pages\n"
+            "- diagrams\n"
+            "- source code\n"
+            "- an IDE screenshot\n"
+            "- terminal output\n\n"
+
+            "Requirements:\n"
+
+            "- Use only information reasonably "
+            "supported by the image.\n"
+
+            "- Do not invent unreadable content.\n"
+
+            "- Each question must test one "
+            "clear concept.\n"
+
+            "- Use exactly four distinct "
+            "answer options.\n"
+
+            "- Exactly one answer must be "
+            "correct.\n"
+
+            "- correct_index must be the "
+            "zero-based index of the correct "
+            "option: 0, 1, 2, or 3.\n"
+
+            "- Incorrect answers should be "
+            "plausible but clearly wrong.\n"
+
+            "- Avoid duplicate questions.\n"
+
+            "- Prefer important educational "
+            "concepts over minor details.\n"
+
+            "- Include a concise explanation "
+            "for the correct answer.\n"
+
+            "- If source code is visible, test "
+            "the concepts, APIs, behavior, "
+            "classes or methods represented "
+            "by the code.\n"
+
+            "- Do not reproduce large source "
+            "code or text passages verbatim.\n"
+
+            "- Paraphrase educational content.\n"
+
+            "- Ignore status bars, toolbars, "
+            "meeting controls and unrelated UI.\n"
+
+            "- Vary the correct answer position "
+            "across questions.\n"
+
+            "- Do not include labels like "
+            "'Question 1' in question text."
+        )
+
+
+        try:
+
+            image_part = (
+                types.Part.from_bytes(
+                    data=
+                        image_bytes,
+
+                    mime_type=
+                        resolved_mime_type,
+                )
+            )
+
+
+            response = (
+                self.client
+                .models
+                .generate_content(
+                    model=
+                        self.vision_model,
+
+                    contents=[
+                        prompt,
+                        image_part,
+                    ],
+
+                    config=
+                        types.GenerateContentConfig(
+                            temperature=
+                                0.2,
+
+                            media_resolution=
+                                types
+                                .MediaResolution
+                                .MEDIA_RESOLUTION_HIGH,
+
+                            response_mime_type=
+                                "application/json",
+
+                            response_schema=
+                                QuizGenerationContent,
+                        ),
+                )
+            )
+
+
+            # =================================================
+            # SDK PARSED RESPONSE
+            # =================================================
+
+            parsed = getattr(
+                response,
+                "parsed",
+                None,
+            )
+
+
+            if isinstance(
+                parsed,
+                QuizGenerationContent,
+            ):
+
+                if not parsed.questions:
+
+                    raise AIResponseError(
+                        "Gemini returned no "
+                        "quiz questions."
+                    )
+
+
+                print(
+                    "[Gemini direct image "
+                    "quiz success]"
+                )
+
+
+                return parsed
+
+
+            # =================================================
+            # JSON FALLBACK
+            # =================================================
+
+            response_text = (
+                response.text
+                or
+                ""
+            ).strip()
+
+
+            if not response_text:
+
+                finish_reason = (
+                    self
+                    ._get_finish_reason(
+                        response
+                    )
+                )
+
+
+                print(
+                    "[Gemini image quiz empty]"
+                )
+
+
+                print(
+                    "Finish reason:",
+                    finish_reason,
+                )
+
+
+                raise AIResponseError(
+                    "Gemini could not generate "
+                    "a quiz from this image. "
+                    f"Finish reason: {finish_reason}"
+                )
+
+
+            result = (
+                QuizGenerationContent
+                .model_validate_json(
+                    response_text
+                )
+            )
+
+
+            if not result.questions:
+
+                raise AIResponseError(
+                    "Gemini returned no "
+                    "quiz questions."
+                )
+
+
+            print(
+                "[Gemini direct image "
+                "quiz success]"
+            )
+
+
+            return result
+
+
+        except AIResponseError:
+
+            raise
+
+
+        except Exception as exc:
+
+            print(
+                "[Gemini direct image "
+                "quiz error]"
+            )
+
+
+            print(
+                "Type:",
+                type(exc).__name__,
+            )
+
+
+            print(
+                "Message:",
+                str(exc),
+            )
+
+
+            print(
+                "Vision model:",
+                self.vision_model,
+            )
+
+
+            print(
+                "Resolved MIME:",
+                resolved_mime_type,
+            )
+
+
+            raise AIResponseError(
+                "Gemini image quiz "
                 "generation failed."
             ) from exc

@@ -19,6 +19,10 @@ from app.schemas.flashcard import (
     FlashcardGenerationContent,
 )
 
+from app.schemas.quiz import (
+    QuizGenerationContent,
+)
+
 
 class AIService:
 
@@ -95,24 +99,11 @@ class AIService:
         mime_type: str,
     ) -> str:
 
-        try:
-
-            image_bytes = (
-                file_path.read_bytes()
+        image_bytes = (
+            self._read_image(
+                file_path
             )
-
-        except OSError as exc:
-
-            raise AIResponseError(
-                "Unable to read the stored image."
-            ) from exc
-
-
-        if not image_bytes:
-
-            raise AIResponseError(
-                "The stored image is empty."
-            )
+        )
 
 
         return (
@@ -137,24 +128,11 @@ class AIService:
         mime_type: str,
     ) -> SummaryContent:
 
-        try:
-
-            image_bytes = (
-                file_path.read_bytes()
+        image_bytes = (
+            self._read_image(
+                file_path
             )
-
-        except OSError as exc:
-
-            raise AIResponseError(
-                "Unable to read the stored image."
-            ) from exc
-
-
-        if not image_bytes:
-
-            raise AIResponseError(
-                "The stored image is empty."
-            )
+        )
 
 
         return (
@@ -195,14 +173,14 @@ class AIService:
 
 
         if (
-            card_count < 1
+            card_count < 4
             or
             card_count > 20
         ):
 
             raise ValueError(
                 "Flashcard count must be "
-                "between 1 and 20."
+                "between 4 and 20."
             )
 
 
@@ -230,35 +208,22 @@ class AIService:
     ) -> FlashcardGenerationContent:
 
         if (
-            card_count < 1
+            card_count < 4
             or
             card_count > 20
         ):
 
             raise ValueError(
                 "Flashcard count must be "
-                "between 1 and 20."
+                "between 4 and 20."
             )
 
 
-        try:
-
-            image_bytes = (
-                file_path.read_bytes()
+        image_bytes = (
+            self._read_image(
+                file_path
             )
-
-        except OSError as exc:
-
-            raise AIResponseError(
-                "Unable to read the stored image."
-            ) from exc
-
-
-        if not image_bytes:
-
-            raise AIResponseError(
-                "The stored image is empty."
-            )
+        )
 
 
         return (
@@ -274,3 +239,178 @@ class AIService:
                     card_count,
             )
         )
+
+
+    # ========================================================
+    # TEXT QUIZ
+    #
+    # Used by:
+    # - Text material
+    # - PDF extracted text
+    # ========================================================
+
+    def generate_quiz(
+        self,
+        text: str,
+        question_count: int = 10,
+    ) -> QuizGenerationContent:
+
+        clean_text = (
+            text
+            or
+            ""
+        ).strip()
+
+
+        if not clean_text:
+
+            raise AIResponseError(
+                "No study content was provided "
+                "for quiz generation."
+            )
+
+
+        if (
+            question_count < 5
+            or
+            question_count > 20
+        ):
+
+            raise ValueError(
+                "Quiz question count must be "
+                "between 5 and 20."
+            )
+
+
+        result = (
+            self.provider
+            .generate_quiz(
+                text=
+                    clean_text,
+
+                question_count=
+                    question_count,
+            )
+        )
+
+
+        # ====================================================
+        # EXACT COUNT CHECK
+        # ====================================================
+
+        if (
+            len(
+                result.questions
+            )
+            !=
+            question_count
+        ):
+
+            raise AIResponseError(
+                "The AI provider returned "
+                f"{len(result.questions)} questions "
+                f"instead of {question_count}."
+            )
+
+
+        return result
+
+
+    # ========================================================
+    # IMAGE QUIZ
+    #
+    # Used by:
+    # - Gallery material
+    # - Camera material
+    # ========================================================
+
+    def generate_quiz_from_image(
+        self,
+        file_path: Path,
+        mime_type: str,
+        question_count: int = 10,
+    ) -> QuizGenerationContent:
+
+        if (
+            question_count < 5
+            or
+            question_count > 20
+        ):
+
+            raise ValueError(
+                "Quiz question count must be "
+                "between 5 and 20."
+            )
+
+
+        image_bytes = (
+            self._read_image(
+                file_path
+            )
+        )
+
+
+        result = (
+            self.provider
+            .generate_quiz_from_image(
+                image_bytes=
+                    image_bytes,
+
+                mime_type=
+                    mime_type,
+
+                question_count=
+                    question_count,
+            )
+        )
+
+
+        if (
+            len(
+                result.questions
+            )
+            !=
+            question_count
+        ):
+
+            raise AIResponseError(
+                "The AI provider returned "
+                f"{len(result.questions)} questions "
+                f"instead of {question_count}."
+            )
+
+
+        return result
+
+
+    # ========================================================
+    # READ IMAGE
+    # ========================================================
+
+    def _read_image(
+        self,
+        file_path: Path,
+    ) -> bytes:
+
+        try:
+
+            image_bytes = (
+                file_path.read_bytes()
+            )
+
+
+        except OSError as exc:
+
+            raise AIResponseError(
+                "Unable to read the stored image."
+            ) from exc
+
+
+        if not image_bytes:
+
+            raise AIResponseError(
+                "The stored image is empty."
+            )
+
+
+        return image_bytes
