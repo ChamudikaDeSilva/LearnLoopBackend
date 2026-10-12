@@ -3,6 +3,7 @@ from datetime import (
     timedelta,
     timezone,
 )
+from uuid import uuid4
 
 import jwt
 from pwdlib import PasswordHash
@@ -33,6 +34,7 @@ def verify_password(
 
 def create_access_token(
     user_id: int,
+    auth_version: int = 0,
 ) -> str:
 
     if not settings.jwt_secret_key:
@@ -55,6 +57,8 @@ def create_access_token(
         "sub": str(user_id),
         "iat": now,
         "exp": expires_at,
+        "ver": auth_version,
+        "jti": uuid4().hex,
     }
 
     return jwt.encode(

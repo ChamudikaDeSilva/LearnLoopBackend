@@ -94,4 +94,8 @@ def get_current_user(
     if user is None:
         raise authentication_error
 
+    auth_version = payload.get("ver", 0)
+    if type(auth_version) is not int or auth_version != user.auth_version:
+        raise authentication_error
+
     return user

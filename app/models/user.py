@@ -2,6 +2,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     DateTime,
+    Integer,
     String,
     func,
 )
@@ -37,6 +38,13 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
+    )
+
+    auth_version: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
     )
 
     created_at: Mapped[datetime] = mapped_column(
